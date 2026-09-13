@@ -1,0 +1,30 @@
+{
+  "bundle_version": "authoritative_locked_stage3_v1",
+  "raw_xtb_names": [
+    "total_energy",
+    "homo",
+    "lumo",
+    "gap",
+    "dipole",
+    "min_charge",
+    "max_charge",
+    "max_abs_charge",
+    "charge_range",
+    "isotropic_polarizability"
+  ],
+  "selected_xtb_names": [
+    "isotropic_polarizability",
+    "total_energy",
+    "homo",
+    "lumo"
+  ],
+  "fusion_weight_gnn": 0.5955128205128207,
+  "fusion_weight_xtb": 0.40448717948717927,
+  "checkpoint": "E:\\python\\pycharm\\python text\\Program_1\\paper2\\ToxGNN_Project\\artifacts\\fresh_runs\\final_locked_r2_0p84384_seed3407\\stage2_lc50_adapter\\best_loss.ckpt",
+  "metrics": {
+    "train_r2": 0.9224639492938678,
+    "test_r2": 0.8438429645344161,
+    "test_mae": 0.41135838649738204,
+    "test_rmse": 0.5983228044620575
+  }
+}
