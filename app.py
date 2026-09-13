@@ -9,7 +9,10 @@ import pandas as pd
 import streamlit as st
 
 APP_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = APP_DIR.parent
+# Support both layouts used by local development (toxgnn_streamlit_app/app.py)
+# and Streamlit Cloud (app.py at repository root).
+PROJECT_ROOT = APP_DIR if (APP_DIR / "src").exists() else APP_DIR.parent
+ASSET_DIR = APP_DIR / "assets"
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
@@ -169,11 +172,23 @@ st.markdown(
 
 
 def model_paths() -> dict[str, Path]:
+    def packaged_or_project(filename: str, project_path: Path) -> Path:
+        """Prefer assets shipped with the Streamlit app, then use the repo copy."""
+        packaged = ASSET_DIR / filename
+        return packaged if packaged.exists() else project_path
+
     return {
-        "source": PROJECT_ROOT / "data/processed/source_domain_tox.csv",
-        "xtb": PROJECT_ROOT / "data/features/xtb_descriptors.parquet",
-        "checkpoint": PROJECT_ROOT
-        / "artifacts/fresh_runs/final_locked_r2_0p84384_seed3407/stage2_lc50_adapter/best_loss.ckpt",
+        "source": packaged_or_project(
+            "source_domain_tox.csv", PROJECT_ROOT / "data/processed/source_domain_tox.csv"
+        ),
+        "xtb": packaged_or_project(
+            "xtb_descriptors.parquet", PROJECT_ROOT / "data/features/xtb_descriptors.parquet"
+        ),
+        "checkpoint": packaged_or_project(
+            "best_loss.ckpt",
+            PROJECT_ROOT
+            / "artifacts/fresh_runs/final_locked_r2_0p84384_seed3407/stage2_lc50_adapter/best_loss.ckpt",
+        ),
         "bundle": APP_DIR / "models/final_toxgnn_xtb_bundle.joblib",
     }
 

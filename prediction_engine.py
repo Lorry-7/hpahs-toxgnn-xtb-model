@@ -14,7 +14,11 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+APP_DIR = Path(__file__).resolve().parent
+# The public deployment keeps app.py/prediction_engine.py at repository root,
+# while the research workspace keeps them in toxgnn_streamlit_app/. Resolve
+# the root from whichever layout is present.
+PROJECT_ROOT = APP_DIR if (APP_DIR / "src").exists() else APP_DIR.parent
 SRC = PROJECT_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
@@ -157,11 +161,24 @@ def attach_xtb_descriptors(
         missing = sorted(set(REQUIRED_XTB) - set(descriptors.columns))
         raise ValueError(f"Descriptor table is missing required model inputs: {', '.join(missing)}")
     descriptors = descriptors.copy()
-    if "canonical_smiles" not in descriptors.columns and "smiles" in descriptors.columns:
+    if "smiles" in descriptors.columns and (
+        "canonical_smiles" not in descriptors.columns
+        or descriptors["canonical_smiles"].isna().any()
+    ):
         from rdkit import Chem
-        descriptors["canonical_smiles"] = descriptors["smiles"].map(
-            lambda s: Chem.MolToSmiles(Chem.MolFromSmiles(str(s))) if Chem.MolFromSmiles(str(s)) else None
-        )
+        def canonicalize(value):
+            if pd.isna(value) or str(value).strip().lower() in {"", "nan", "none"}:
+                return None
+            mol = Chem.MolFromSmiles(str(value))
+            return Chem.MolToSmiles(mol, canonical=True) if mol is not None else None
+
+        generated = descriptors["smiles"].map(canonicalize)
+        if "canonical_smiles" not in descriptors.columns:
+            descriptors["canonical_smiles"] = generated
+        else:
+            descriptors["canonical_smiles"] = descriptors["canonical_smiles"].where(
+                descriptors["canonical_smiles"].notna(), generated
+            )
     keep = [c for c in ["mol_id", "compound_id", "canonical_smiles", *REQUIRED_XTB] if c in descriptors.columns]
     descriptors = descriptors[keep].drop_duplicates()
     left = molecules.copy()
@@ -194,7 +211,9 @@ class ToxGNNEngine:
         self.source_csv = source_csv or PROJECT_ROOT / "data/processed/source_domain_tox.csv"
         self.xtb_parquet = xtb_parquet or PROJECT_ROOT / "data/features/xtb_descriptors.parquet"
         self.checkpoint = checkpoint or PROJECT_ROOT / "artifacts/fresh_runs/final_locked_r2_0p84384_seed3407/stage2_lc50_adapter/best_loss.ckpt"
-        self.bundle_path = PROJECT_ROOT / "toxgnn_streamlit_app/models/final_toxgnn_xtb_bundle.joblib"
+        # Keep the bundle next to the deployed app; this works for both the
+        # public repository-root layout and the local toxgnn_streamlit_app/ layout.
+        self.bundle_path = APP_DIR / "models/final_toxgnn_xtb_bundle.joblib"
         self._model = None
         self._device = None
         self._source_embeddings = None
